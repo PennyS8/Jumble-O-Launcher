@@ -29,6 +29,7 @@
             android:orientation="vertical"
             android:paddingVertical="56dp">
 
+            <!-- App header card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -76,11 +77,62 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:layout_marginTop="12dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="4dp"
                     android:text="@string/about_olauncher" />
+
+                <TextView
+                    android:id="@+id/jumbledApps"
+                    style="@style/TextSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/jumbled_apps" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="?attr/primaryColorTrans50" />
+
+                <TextView
+                    style="@style/TextSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:alpha="0.6"
+                    android:text="@string/about_attribution"
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/forkDeveloper"
+                    style="@style/TextSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="4dp"
+                    android:text="@string/fork_developer" />
+
+                <TextView
+                    android:id="@+id/originalDeveloper"
+                    style="@style/TextSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:alpha="0.7"
+                    android:text="@string/original_developer" />
 
             </LinearLayout>
 
+            <!-- Appearance card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -126,7 +178,6 @@
                         android:layout_marginEnd="4dp"
                         android:padding="8dp" />
 
-                    <!-- Home apps numbers layout-->
                     <LinearLayout
                         android:id="@+id/appsNumSelectLayout"
                         android:layout_width="match_parent"
@@ -337,7 +388,6 @@
                         android:padding="8dp"
                         android:text="@string/on" />
 
-                    <!-- date time layout-->
                     <LinearLayout
                         android:id="@+id/dateTimeSelectLayout"
                         android:layout_width="match_parent"
@@ -419,7 +469,6 @@
                         android:padding="8dp"
                         android:text="@string/left" />
 
-                    <!-- alignment layout-->
                     <LinearLayout
                         android:id="@+id/alignmentSelectLayout"
                         android:layout_width="match_parent"
@@ -515,7 +564,6 @@
                         android:padding="8dp"
                         android:text="@string/dark" />
 
-                    <!-- theme color select layout-->
                     <LinearLayout
                         android:id="@+id/appThemeSelectLayout"
                         android:layout_width="match_parent"
@@ -599,7 +647,6 @@
                         android:paddingEnd="8dp"
                         tools:text="@string/_8" />
 
-                    <!-- Text sizes layout-->
                     <LinearLayout
                         android:id="@+id/textSizesLayout"
                         android:layout_width="match_parent"
@@ -690,6 +737,7 @@
 
             </LinearLayout>
 
+            <!-- Gestures card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -795,7 +843,6 @@
                         android:lines="1"
                         android:padding="8dp" />
 
-                    <!-- Swipe down select layout-->
                     <LinearLayout
                         android:id="@+id/swipeDownSelectLayout"
                         android:layout_width="match_parent"
@@ -865,6 +912,7 @@
                 </FrameLayout>
             </LinearLayout>
 
+            <!-- Social links -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -919,6 +967,7 @@
 
             </LinearLayout>
 
+            <!-- Footer - replace the LinearLayout wrapper with just the footer TextView -->
             <TextView
                 android:id="@+id/footer"
                 style="@style/TextSmall"
@@ -927,9 +976,9 @@
                 android:layout_gravity="center_horizontal"
                 android:gravity="center"
                 android:letterSpacing="0.03"
-                android:padding="12dp"
+                android:padding="4dp"
                 android:text="@string/olauncher_pro"
-                android:textSize="18sp" />
+                android:textSize="16sp" />
 
         </LinearLayout>
 

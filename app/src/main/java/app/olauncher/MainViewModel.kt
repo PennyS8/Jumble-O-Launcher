@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.UserHandle
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import androidx.work.BackoffPolicy
@@ -42,6 +43,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val showDialog = SingleLiveEvent<String>()
     val resetLauncherLiveData = SingleLiveEvent<Unit?>()
 
+    private val _jumbledApps = MutableLiveData<List<AppModel>?>()
+    val jumbledApps: LiveData<List<AppModel>?> = _jumbledApps
+
     fun selectedApp(appModel: AppModel, flag: Int) {
         when (flag) {
             Constants.FLAG_LAUNCH_APP -> {
@@ -49,6 +53,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             Constants.FLAG_HIDDEN_APPS -> {
+                launchApp(appModel.appPackage, appModel.activityClassName, appModel.user)
+            }
+
+            Constants.FLAG_JUMBLED_APPS -> {
                 launchApp(appModel.appPackage, appModel.activityClassName, appModel.user)
             }
 
@@ -167,13 +175,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val activityInfo = launcher.getActivityList(packageName, userHandle)
 
         val component = if (activityClassName.isNullOrBlank()) {
-            // activityClassName will be null for hidden apps.
             when (activityInfo.size) {
                 0 -> {
                     appContext.showToast(appContext.getString(R.string.app_not_found))
                     return
                 }
-
                 1 -> ComponentName(packageName, activityInfo[0].name)
                 else -> ComponentName(packageName, activityInfo[activityInfo.size - 1].name)
             }
@@ -206,14 +212,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun getJumbledApps() {
+        viewModelScope.launch {
+            _jumbledApps.value = getAppsList(appContext, prefs, includeHiddenApps = false)
+                .filter { prefs.isAppJumbled(it.appPackage) }
+                .toMutableList()
+        }
+    }
+
     fun isOlauncherDefault() {
         isOlauncherDefault.value = isOlauncherDefault(appContext)
     }
-
-//    fun resetDefaultLauncherApp(context: Context) {
-//        resetDefaultLauncher(context)
-//        launcherResetFailed.value = getDefaultLauncherPackage(appContext).contains(".")
-//    }
 
     fun setWallpaperWorker() {
         val constraints = Constraints.Builder()

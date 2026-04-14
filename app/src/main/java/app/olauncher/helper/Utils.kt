@@ -55,6 +55,7 @@ import java.util.Locale
 import java.util.Scanner
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 fun Context.showToast(message: String?, duration: Int = Toast.LENGTH_SHORT) {
     if (message.isNullOrBlank()) return
@@ -65,49 +66,63 @@ fun Context.showToast(stringResource: Int, duration: Int = Toast.LENGTH_SHORT) {
     Toast.makeText(this, getString(stringResource), duration).show()
 }
 
+// Sort key is deterministic per package name using a fixed seed (42).
+// This means a jumbled app always gets the same random position across
+// list refreshes, until the seed or jumble state changes.
+fun getJumbledSortKey(label: String, packageName: String): String {
+    val random = Random(packageName.hashCode().toLong() xor 42L)
+    val randomPrefix = ('A'..'Z').random(random)
+    return "$randomPrefix $label"
+}
+
 suspend fun getAppsList(context: Context, prefs: Prefs, includeHiddenApps: Boolean = false): MutableList<AppModel> {
     return withContext(Dispatchers.IO) {
         val appList: MutableList<AppModel> = mutableListOf()
-
         try {
-            if (!Prefs(context).hiddenAppsUpdated) upgradeHiddenApps(Prefs(context))
-            val hiddenApps = Prefs(context).hiddenApps
-
+            val hiddenApps = prefs.hiddenApps
             val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
             val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
             val collator = Collator.getInstance()
 
             for (profile in userManager.userProfiles) {
                 for (app in launcherApps.getActivityList(null, profile)) {
+                    val baseLabel = prefs.getAppRenameLabel(app.applicationInfo.packageName)
+                        .ifBlank { app.label.toString() }
 
-                    val appLabelShown = prefs.getAppRenameLabel(app.applicationInfo.packageName).ifBlank { app.label.toString() }
+                    val sortKey = if (prefs.isAppJumbled(app.applicationInfo.packageName))
+                        getJumbledSortKey(baseLabel, app.applicationInfo.packageName)
+                    else
+                        baseLabel
 
-                    if (includeHiddenApps && app.applicationInfo.packageName != BuildConfig.APPLICATION_ID)
+                    if (includeHiddenApps && app.applicationInfo.packageName != BuildConfig.APPLICATION_ID) {
                         appList.add(
                             AppModel(
-                                appLabelShown,
-                                collator.getCollationKey(app.label.toString()),
-                                app.applicationInfo.packageName,
-                                app.componentName.className,
-                                profile
+                                appLabel = baseLabel,
+                                key = collator.getCollationKey(sortKey),
+                                appPackage = app.applicationInfo.packageName,
+                                activityClassName = app.componentName.className,
+                                user = profile,
+                                displayName = baseLabel
                             )
                         )
-                    else if (!hiddenApps.contains(app.applicationInfo.packageName + "|" + profile.toString())
+                    } else if (
+                        !hiddenApps.contains(app.applicationInfo.packageName + "|" + profile.toString())
                         && app.applicationInfo.packageName != BuildConfig.APPLICATION_ID
-                    )
+                    ) {
                         appList.add(
                             AppModel(
-                                appLabelShown,
-                                collator.getCollationKey(app.label.toString()),
-                                app.applicationInfo.packageName,
-                                app.componentName.className,
-                                profile
+                                appLabel = baseLabel,
+                                key = collator.getCollationKey(sortKey),
+                                appPackage = app.applicationInfo.packageName,
+                                activityClassName = app.componentName.className,
+                                user = profile,
+                                displayName = baseLabel
                             )
                         )
+                    }
                 }
             }
-            appList.sortBy { it.appLabel.lowercase() }
-
+            appList.sortBy { it.key }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -126,6 +141,7 @@ suspend fun getHiddenAppsList(context: Context, prefs: Prefs): MutableList<AppMo
 
         val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
         val collator = Collator.getInstance()
+
         for (hiddenPackage in hiddenAppsSet) {
             try {
                 val appPackage = hiddenPackage.split("|")[0]
@@ -134,9 +150,9 @@ suspend fun getHiddenAppsList(context: Context, prefs: Prefs): MutableList<AppMo
                 for (user in userManager.userProfiles) {
                     if (user.toString() == userString) userHandle = user
                 }
-
                 val appInfo = pm.getApplicationInfo(appPackage, 0)
-                val appLabelShown = prefs.getAppRenameLabel(appPackage).ifBlank { pm.getApplicationLabel(appInfo).toString() }
+                val appLabelShown = prefs.getAppRenameLabel(appPackage)
+                    .ifBlank { pm.getApplicationLabel(appInfo).toString() }
                 val appKey = collator.getCollationKey(appLabelShown)
                 appList.add(AppModel(appLabelShown, appKey, appPackage, null, userHandle))
             } catch (e: Exception) {
@@ -164,8 +180,7 @@ private fun upgradeHiddenApps(prefs: Prefs) {
 fun isPackageInstalled(context: Context, packageName: String, userString: String): Boolean {
     val launcher = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
     val activityInfo = launcher.getActivityList(packageName, getUserHandleFromString(context, userString))
-    if (activityInfo.size > 0) return true
-    return false
+    return activityInfo.size > 0
 }
 
 fun getUserHandleFromString(context: Context, userHandleString: String): UserHandle {
@@ -237,7 +252,6 @@ fun getChangedAppTheme(context: Context, currentAppTheme: Int): Int {
 fun openAppInfo(context: Context, userHandle: UserHandle, packageName: String) {
     val launcher = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
     val intent: Intent? = context.packageManager.getLaunchIntentForPackage(packageName)
-
     intent?.let {
         launcher.startAppDetailsActivity(intent.component, userHandle, null, null)
     } ?: context.showToast(context.getString(R.string.unable_to_open_app))
@@ -248,8 +262,7 @@ suspend fun getBitmapFromURL(src: String?): Bitmap? {
         var bitmap: Bitmap? = null
         try {
             val url = URL(src)
-            val connection: HttpURLConnection = url
-                .openConnection() as HttpURLConnection
+            val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
             connection.doInput = true
             connection.connect()
             val input: InputStream = connection.inputStream
@@ -263,7 +276,6 @@ suspend fun getBitmapFromURL(src: String?): Bitmap? {
 
 suspend fun getWallpaperBitmap(originalImage: Bitmap, width: Int, height: Int): Bitmap {
     return withContext(Dispatchers.IO) {
-
         val background = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
 
         val originalWidth: Float = originalImage.width.toFloat()
@@ -272,7 +284,6 @@ suspend fun getWallpaperBitmap(originalImage: Bitmap, width: Int, height: Int): 
         val canvas = Canvas(background)
         val heightScale: Float = height / originalHeight
         val widthScale: Float = width / originalWidth
-        val scale = maxOf(heightScale, widthScale)
 
         val (xTranslation, yTranslation) = if (heightScale > widthScale)
             Pair((width - originalWidth * heightScale) / 2.0f, 0f)
@@ -281,7 +292,7 @@ suspend fun getWallpaperBitmap(originalImage: Bitmap, width: Int, height: Int): 
 
         val transformation = Matrix()
         transformation.postTranslate(xTranslation, yTranslation)
-        transformation.preScale(scale, scale)
+        transformation.preScale(maxOf(heightScale, widthScale), maxOf(heightScale, widthScale))
 
         val paint = Paint()
         paint.isFilterBitmap = true
@@ -351,7 +362,6 @@ suspend fun getTodaysWallpaper(wallType: String): String {
             val wallpapersJson = JSONObject(wallpapers)
             wallpaperUrl = wallpapersJson.getString(wallType)
             wallpaperUrl
-
         } catch (e: Exception) {
             wallpaperUrl = getBackupWallpaper(wallType)
             wallpaperUrl
@@ -365,15 +375,14 @@ fun getBackupWallpaper(wallType: String): String {
     else Constants.URL_DEFAULT_DARK_WALLPAPER
 }
 
-fun openSearch(context: Context) {
+fun openSearch(context: Context, query: String? = null) {
     val intent = Intent(Intent.ACTION_WEB_SEARCH)
-    intent.putExtra(SearchManager.QUERY, "")
+    intent.putExtra(SearchManager.QUERY, query ?: "")
     context.startActivity(intent)
 }
 
 @SuppressLint("WrongConstant", "PrivateApi")
 fun expandNotificationDrawer(context: Context) {
-    // Source: https://stackoverflow.com/a/51132142
     try {
         val statusBarService = context.getSystemService("statusbar")
         val statusBarManager = Class.forName("android.app.StatusBarManager")
@@ -420,7 +429,8 @@ fun openCalendar(context: Context) {
         context.startActivity(Intent(Intent.ACTION_VIEW, calendarUri))
     } catch (e: Exception) {
         try {
-            val intent = Intent(Intent.ACTION_MAIN)
+            val intent = Intent()
+            intent.setClass(context, FakeHomeActivity::class.java)
             intent.addCategory(Intent.CATEGORY_APP_CALENDAR)
             context.startActivity(intent)
         } catch (e: Exception) {
@@ -431,13 +441,21 @@ fun openCalendar(context: Context) {
 
 fun isAccessServiceEnabled(context: Context): Boolean {
     val enabled = try {
-        Settings.Secure.getInt(context.applicationContext.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED)
+        Settings.Secure.getInt(
+            context.applicationContext.contentResolver,
+            Settings.Secure.ACCESSIBILITY_ENABLED
+        )
     } catch (e: Exception) {
         0
     }
     if (enabled == 1) {
-        val enabledServicesString: String? = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        return enabledServicesString?.contains(context.packageName + "/" + MyAccessibilityService::class.java.name) ?: false
+        val enabledServicesString: String? = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )
+        return enabledServicesString?.contains(
+            context.packageName + "/" + MyAccessibilityService::class.java.name
+        ) ?: false
     }
     return false
 }
@@ -449,8 +467,7 @@ fun isTablet(context: Context): Boolean {
     val widthInches = metrics.widthPixels / metrics.xdpi
     val heightInches = metrics.heightPixels / metrics.ydpi
     val diagonalInches = sqrt(widthInches.toDouble().pow(2.0) + heightInches.toDouble().pow(2.0))
-    if (diagonalInches >= 7.0) return true
-    return false
+    return diagonalInches >= 7.0
 }
 
 fun Context.isDarkThemeOn(): Boolean {
@@ -517,7 +534,6 @@ fun Context.shareApp() {
         putExtra(Intent.EXTRA_TEXT, message)
         type = "text/plain"
     }
-
     val shareIntent = Intent.createChooser(sendIntent, null)
     startActivity(shareIntent)
 }

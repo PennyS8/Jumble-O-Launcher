@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -58,12 +59,14 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun initViews() {
-        if (flag == Constants.FLAG_HIDDEN_APPS)
-            binding.search.queryHint = getString(R.string.hidden_apps)
-        else if (flag in Constants.FLAG_SET_HOME_APP_1..Constants.FLAG_SET_CALENDAR_APP)
-            binding.search.queryHint = "Please select an app"
+        when (flag) {
+            Constants.FLAG_HIDDEN_APPS -> binding.search.queryHint = getString(R.string.hidden_apps)
+            Constants.FLAG_JUMBLED_APPS -> binding.search.queryHint = getString(R.string.jumbled_apps)
+            in Constants.FLAG_SET_HOME_APP_1..Constants.FLAG_SET_CALENDAR_APP ->
+                binding.search.queryHint = "Please select an app"
+        }
         try {
-            val searchTextView = binding.search.findViewById<TextView>(R.id.search_src_text)
+            val searchTextView = binding.search.findViewById<TextView>(androidx.appcompat.R.id.search_src_text)
             if (searchTextView != null) searchTextView.gravity = prefs.appLabelAlignment
         } catch (e: Exception) {
             e.printStackTrace()
@@ -100,21 +103,20 @@ class AppDrawerFragment : Fragment() {
         adapter = AppDrawerAdapter(
             flag,
             prefs.appLabelAlignment,
+            prefs,
             appClickListener = {
-                if (it.appPackage.isEmpty())
-                    return@AppDrawerAdapter
+                if (it.appPackage.isEmpty()) return@AppDrawerAdapter
                 viewModel.selectedApp(it, flag)
-                if (flag == Constants.FLAG_LAUNCH_APP || flag == Constants.FLAG_HIDDEN_APPS)
+                if (flag == Constants.FLAG_LAUNCH_APP
+                    || flag == Constants.FLAG_HIDDEN_APPS
+                    || flag == Constants.FLAG_JUMBLED_APPS
+                )
                     findNavController().popBackStack(R.id.mainFragment, false)
                 else
                     findNavController().popBackStack()
             },
             appInfoListener = {
-                openAppInfo(
-                    requireContext(),
-                    it.user,
-                    it.appPackage
-                )
+                openAppInfo(requireContext(), it.user, it.appPackage)
                 findNavController().popBackStack(R.id.mainFragment, false)
             },
             appDeleteListener = {
@@ -133,14 +135,13 @@ class AppDrawerFragment : Fragment() {
                 val newSet = mutableSetOf<String>()
                 newSet.addAll(prefs.hiddenApps)
                 if (flag == Constants.FLAG_HIDDEN_APPS) {
-                    newSet.remove(appModel.appPackage) // for backward compatibility
+                    newSet.remove(appModel.appPackage)
                     newSet.remove(appModel.appPackage + "|" + appModel.user.toString())
                 } else
                     newSet.add(appModel.appPackage + "|" + appModel.user.toString())
-
                 prefs.hiddenApps = newSet
-                if (newSet.isEmpty())
-                    findNavController().popBackStack()
+
+                if (newSet.isEmpty()) findNavController().popBackStack()
                 if (prefs.firstHide) {
                     binding.search.hideKeyboard()
                     prefs.firstHide = false
@@ -151,6 +152,21 @@ class AppDrawerFragment : Fragment() {
             appRenameListener = { appModel, renameLabel ->
                 prefs.setAppRenameLabel(appModel.appPackage, renameLabel)
                 viewModel.getAppList()
+            },
+            appJumbleListener = { appModel ->
+                val isNowJumbled = !prefs.isAppJumbled(appModel.appPackage)
+                prefs.toggleJumbledApp(appModel.appPackage)
+                val message = if (isNowJumbled) "${appModel.displayName} jumbled"
+                else "${appModel.displayName} unjumbled"
+                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                if (flag == Constants.FLAG_JUMBLED_APPS) {
+                    adapter.appsList.remove(appModel)
+                    adapter.appFilteredList.remove(appModel)
+                    adapter.notifyDataSetChanged()
+                    if (prefs.jumbledApps.isEmpty()) findNavController().popBackStack()
+                } else {
+                    viewModel.getAppList()
+                }
             }
         )
         binding.recyclerView.adapter = adapter
@@ -168,14 +184,17 @@ class AppDrawerFragment : Fragment() {
                 binding.appDrawerTip.isSelected = true
             }
         }
-        if (flag == Constants.FLAG_HIDDEN_APPS)
-            viewModel.hiddenApps.observe(viewLifecycleOwner) {
+        when (flag) {
+            Constants.FLAG_HIDDEN_APPS -> viewModel.hiddenApps.observe(viewLifecycleOwner) {
                 it?.let { adapter.setAppList(it.toMutableList()) }
             }
-        else
-            viewModel.appList.observe(viewLifecycleOwner) {
+            Constants.FLAG_JUMBLED_APPS -> viewModel.jumbledApps.observe(viewLifecycleOwner) {
                 it?.let { adapter.setAppList(it.toMutableList()) }
             }
+            else -> viewModel.appList.observe(viewLifecycleOwner) {
+                it?.let { adapter.setAppList(it.toMutableList()) }
+            }
+        }
     }
 
     private fun initClickListeners() {
@@ -190,7 +209,6 @@ class AppDrawerFragment : Fragment() {
                 binding.search.showKeyboard()
                 return@setOnClickListener
             }
-
             when (flag) {
                 Constants.FLAG_SET_HOME_APP_1 -> prefs.appName1 = name
                 Constants.FLAG_SET_HOME_APP_2 -> prefs.appName2 = name
@@ -213,14 +231,12 @@ class AppDrawerFragment : Fragment() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
                 when (newState) {
-
                     RecyclerView.SCROLL_STATE_DRAGGING -> {
                         onTop = !recyclerView.canScrollVertically(-1)
                         if (onTop) binding.search.hideKeyboard()
                         if (onTop && !recyclerView.canScrollVertically(1))
                             findNavController().popBackStack()
                     }
-
                     RecyclerView.SCROLL_STATE_IDLE -> {
                         if (!recyclerView.canScrollVertically(1)) {
                             binding.search.hideKeyboard()

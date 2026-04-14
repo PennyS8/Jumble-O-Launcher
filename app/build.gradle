@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace "app.jumbleolauncher"
     compileSdkVersion 33
 
     compileOptions {
@@ -14,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "app.olauncher"
+        applicationId "app.jumbleolauncher"
         minSdkVersion 23
         targetSdkVersion 33
         versionCode 74
@@ -39,6 +40,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 

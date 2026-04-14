@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import app.olauncher.R
 import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
+import app.olauncher.data.Prefs
 import app.olauncher.databinding.AdapterAppDrawerBinding
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.isSystemApp
@@ -23,11 +24,13 @@ import java.text.Normalizer
 class AppDrawerAdapter(
     private var flag: Int,
     private val appLabelGravity: Int,
+    private val prefs: Prefs,
     private val appClickListener: (AppModel) -> Unit,
     private val appInfoListener: (AppModel) -> Unit,
     private val appDeleteListener: (AppModel) -> Unit,
     private val appHideListener: (AppModel, Int) -> Unit,
     private val appRenameListener: (AppModel, String) -> Unit,
+    private val appJumbleListener: (AppModel) -> Unit,
 ) : ListAdapter<AppModel, AppDrawerAdapter.ViewHolder>(DIFF_CALLBACK), Filterable {
 
     companion object {
@@ -53,7 +56,7 @@ class AppDrawerAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         try {
-            if (appFilteredList.size == 0 || position == RecyclerView.NO_POSITION) return
+            if (appFilteredList.isEmpty() || position == RecyclerView.NO_POSITION) return
             val appModel = appFilteredList[holder.bindingAdapterPosition]
             holder.bind(
                 flag,
@@ -64,7 +67,9 @@ class AppDrawerAdapter(
                 appDeleteListener,
                 appInfoListener,
                 appHideListener,
-                appRenameListener
+                appRenameListener,
+                appJumbleListener,
+                isJumbled = prefs.isAppJumbled(appModel.appPackage),
             )
         } catch (e: Exception) {
             e.printStackTrace()
@@ -105,7 +110,7 @@ class AppDrawerAdapter(
                 && autoLaunch
                 && isBangSearch.not()
                 && flag == Constants.FLAG_LAUNCH_APP
-                && appFilteredList.size > 0
+                && appFilteredList.isNotEmpty()
             ) appClickListener(appFilteredList[0])
         } catch (e: Exception) {
             e.printStackTrace()
@@ -129,7 +134,7 @@ class AppDrawerAdapter(
     }
 
     fun launchFirstInList() {
-        if (appFilteredList.size > 0)
+        if (appFilteredList.isNotEmpty())
             appClickListener(appFilteredList[0])
     }
 
@@ -145,13 +150,23 @@ class AppDrawerAdapter(
             appInfoListener: (AppModel) -> Unit,
             appHideListener: (AppModel, Int) -> Unit,
             appRenameListener: (AppModel, String) -> Unit,
+            appJumbleListener: (AppModel) -> Unit,
+            isJumbled: Boolean,
         ) =
             with(binding) {
                 appHideLayout.visibility = View.GONE
                 renameLayout.visibility = View.GONE
-                appTitle.text = appModel.appLabel
+                appTitle.text = appModel.displayName
                 appTitle.gravity = appLabelGravity
                 otherProfileIndicator.isVisible = appModel.user != myUserHandle
+
+                appJumble.text = if (isJumbled) "Unjumble" else "Jumble"
+                appJumble.setCompoundDrawablesWithIntrinsicBounds(
+                    0,
+                    if (isJumbled) R.drawable.ic_checkbox_checked else R.drawable.ic_checkbox_outline,
+                    0,
+                    0
+                )
 
                 appTitle.setOnClickListener { clickListener(appModel) }
                 appTitle.setOnLongClickListener {
@@ -163,6 +178,7 @@ class AppDrawerAdapter(
                             root.context.getString(R.string.adapter_hide)
                         appHideLayout.visibility = View.VISIBLE
                         appRename.isVisible = flag != Constants.FLAG_HIDDEN_APPS
+                        appJumble.isVisible = flag != Constants.FLAG_HIDDEN_APPS
                     }
                     true
                 }
@@ -172,11 +188,15 @@ class AppDrawerAdapter(
                         renameLayout.visibility = View.VISIBLE
                         appHideLayout.visibility = View.GONE
                         etAppRename.showKeyboard()
-                        etAppRename.imeOptions = EditorInfo.IME_ACTION_DONE;
+                        etAppRename.imeOptions = EditorInfo.IME_ACTION_DONE
                     }
                 }
+                appJumble.setOnClickListener {
+                    appJumbleListener(appModel)
+                    appHideLayout.visibility = View.GONE
+                }
                 etAppRename.setOnEditorActionListener { _, actionCode, _ ->
-                    if(actionCode == EditorInfo.IME_ACTION_DONE) {
+                    if (actionCode == EditorInfo.IME_ACTION_DONE) {
                         val renameLabel = etAppRename.text.toString().trim()
                         if (renameLabel.isNotBlank() && appModel.appPackage.isNotBlank()) {
                             appRenameListener(appModel, renameLabel)

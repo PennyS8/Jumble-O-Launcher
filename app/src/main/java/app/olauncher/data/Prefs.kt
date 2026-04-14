@@ -26,6 +26,7 @@ class Prefs(context: Context) {
     private val SWIPE_LEFT_ENABLED = "SWIPE_LEFT_ENABLED"
     private val SWIPE_RIGHT_ENABLED = "SWIPE_RIGHT_ENABLED"
     private val SCREEN_TIMEOUT = "SCREEN_TIMEOUT"
+    private val JUMBLED_APPS = "JUMBLED_APPS"
     private val HIDDEN_APPS = "HIDDEN_APPS"
     private val HIDDEN_APPS_UPDATED = "HIDDEN_APPS_UPDATED"
     private val SHOW_HINT_COUNTER = "SHOW_HINT_COUNTER"
@@ -164,6 +165,19 @@ class Prefs(context: Context) {
     var hiddenApps: MutableSet<String>
         get() = prefs.getStringSet(HIDDEN_APPS, mutableSetOf()) as MutableSet<String>
         set(value) = prefs.edit().putStringSet(HIDDEN_APPS, value).apply()
+
+    var jumbledApps: MutableSet<String>
+        get() = prefs.getStringSet(JUMBLED_APPS, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        set(value) = prefs.edit().putStringSet(JUMBLED_APPS, value).apply()
+
+    fun isAppJumbled(packageName: String): Boolean = jumbledApps.contains(packageName)
+
+    fun toggleJumbledApp(packageName: String) {
+        val current = jumbledApps
+        if (current.contains(packageName)) current.remove(packageName)
+        else current.add(packageName)
+        jumbledApps = current
+    }
 
     var hiddenAppsUpdated: Boolean
         get() = prefs.getBoolean(HIDDEN_APPS_UPDATED, false)

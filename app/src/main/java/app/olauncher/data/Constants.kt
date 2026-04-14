@@ -46,12 +46,9 @@ object Constants {
     const val WALL_TYPE_LIGHT = "light"
     const val WALL_TYPE_DARK = "dark"
 
-//    const val THEME_MODE_DARK = 0
-//    const val THEME_MODE_LIGHT = 1
-//    const val THEME_MODE_SYSTEM = 2
-
     const val FLAG_LAUNCH_APP = 100
     const val FLAG_HIDDEN_APPS = 101
+    const val FLAG_JUMBLED_APPS = 102
 
     const val FLAG_SET_HOME_APP_1 = 1
     const val FLAG_SET_HOME_APP_2 = 2
@@ -84,6 +81,7 @@ object Constants {
     const val URL_OLAUNCHER_PLAY_STORE = "https://play.google.com/store/apps/details?id=app.olauncher"
     const val URL_PLAY_STORE_DEV = "https://play.google.com/store/apps/dev?id=7198807840081074933"
     const val URL_TWITTER_TANUJ = "https://twitter.com/tanujnotes"
+    const val URL_PENNYS8_GITHUB = "https://www.github.com/PennyS8/Jumble-O-Launcher"
     const val URL_WALLPAPERS = "https://gist.githubusercontent.com/tanujnotes/85e2d0343ace71e76615ac346fbff82b/raw"
     const val URL_DEFAULT_DARK_WALLPAPER = "https://images.unsplash.com/photo-1512551980832-13df02babc9e"
     const val URL_DEFAULT_LIGHT_WALLPAPER = "https://images.unsplash.com/photo-1515549832467-8783363e19b6"
